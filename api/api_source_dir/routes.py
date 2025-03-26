@@ -1,7 +1,10 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, Request
 from . import schemas
 from . import services
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["default"])
 
 
@@ -23,10 +26,3 @@ async def get_today_statistic(
     if not (today_stat := await services.get_user_stat(user_id, request.state.db)):
         raise HTTPException(status_code=500, detail="Cant get user info")
     return today_stat
-
-
-@router.patch("/update_statistic")
-async def update_statistic(
-        user_stat: schemas.Statistic,
-):
-    pass
