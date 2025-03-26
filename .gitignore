@@ -1,4 +1,5 @@
 ### Example user template template
+api/.env
 ### ignore certificates
 *.pem
 *.key
