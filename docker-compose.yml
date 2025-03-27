@@ -1,0 +1,10 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "53474:53474"
+    restart: always
+    volumes:
+      - .:/app
