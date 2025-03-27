@@ -30,6 +30,7 @@ jobs:
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
+          port: 61414
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
@@ -40,6 +41,7 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
+          port: 61414
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
