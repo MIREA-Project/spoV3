@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 53474
 
 # Команда для запуска приложения
-CMD ["python", "manage.py", "runserver", "0.0.0.0:53474"]
+CMD ["python", "main.py"]
