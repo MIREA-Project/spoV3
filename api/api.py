@@ -40,4 +40,4 @@ async def db_session_middleware(request: Request, call_next):
 
 
 if __name__ == '__main__':
-    uvicorn.run("api:app", host="192.168.1.167", port=53474, reload=True)
+    uvicorn.run("api:app", host="192.168.1.167", port=53474)
