@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 53474
 
 # Команда для запуска приложения
-CMD ["python", "main.py"]
+CMD ["python", "api/api.py"]
