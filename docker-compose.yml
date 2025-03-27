@@ -8,3 +8,22 @@ services:
     restart: always
     volumes:
       - .:/app
+    networks:
+      - pisia_popa
+
+    postgres:
+      image: postgres:15
+      container_name: postgres_db
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: danya
+        POSTGRES_PASSWORD: "123"
+        POSTGRES_DB: sosat_america
+      volumes:
+        - ./pgdata:/var/lib/postgresql/data
+      networks:
+        - pisia_popa
+
+networks:
+  pisia_popa:
+    driver: bridge
