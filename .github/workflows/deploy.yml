@@ -34,7 +34,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
-          target: "/spov3"
+          target: "/home/nktkln/spov3"
 
       # Step 4: Restart services
       - name: Restart FastAPI service
