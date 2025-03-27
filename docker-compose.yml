@@ -13,7 +13,7 @@ services:
 
   postgres:
     image: postgres:15
-    container_name: postgres_db
+    container_name: postgres_db_1
     restart: unless-stopped
     environment:
       POSTGRES_USER: danya
