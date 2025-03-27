@@ -2,7 +2,7 @@ from aiogram import Router
 from aiogram.types import Message
 from aiogram import F
 
-from lexicon import COMMAND_LEXICON
+from ..lexicon import COMMAND_LEXICON
 
 command_router: Router = Router()
 
