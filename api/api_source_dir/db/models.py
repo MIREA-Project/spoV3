@@ -59,3 +59,18 @@ class Steps(Base):
     user_id: Mapped[int] = mapped_column()
     steps_date: Mapped[datetime.date] = mapped_column()
     count: Mapped[int] = mapped_column()
+
+
+class Goals(Base):
+    __tablename__ = "goals"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column()
+    daily_calories: Mapped[float] = mapped_column()
+    daily_proteins: Mapped[float] = mapped_column()
+    daily_fats: Mapped[float] = mapped_column()
+    daily_carbs: Mapped[float] = mapped_column()
+    daily_water: Mapped[float] = mapped_column()
+    daily_steps: Mapped[int] = mapped_column()
+    created_at: Mapped[datetime.datetime] = mapped_column(default=datetime.datetime.utcnow)
+    updated_at: Mapped[datetime.datetime] = mapped_column(default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
