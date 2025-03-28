@@ -8,14 +8,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["default"])
 
 
-@router.get("/test")
-async def start():
+@router.get("/health")
+async def check_api_health():
     return {"status": "OK"}
-
-
-@router.get("/find_me")
-async def find_me(user_id: int):
-    return {"message": f"i find you in db, your id={user_id}"}
 
 
 @router.get("/statistic", response_model=schemas.Statistic)
@@ -24,5 +19,5 @@ async def get_today_statistic(
         request: Request,
 ):
     if not (today_stat := await services.get_user_stat(user_id, request.state.db)):
-        raise HTTPException(status_code=500, detail="Cant get user info")
+        raise HTTPException(status_code=404, detail="Cant get user info or no info for today")
     return today_stat

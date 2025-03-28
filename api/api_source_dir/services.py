@@ -47,8 +47,14 @@ async def get_user_stat(user_id: int, session: AsyncSession) -> schemas.Statisti
     user_stat_dict: Optional[dict] = user_stat.mappings().one_or_none()
     if not user_stat_dict:
         return None
-
+    c = 0
+    for v in user_stat_dict.values():
+        if v is None:
+            c += 1
+    if c == len(user_stat_dict.values()):
+        return None
     user_stat_pydantic: schemas.Statistic = schemas.Statistic(**user_stat_dict)
+
     return user_stat_pydantic
 
 
