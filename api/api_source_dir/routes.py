@@ -515,3 +515,35 @@ async def calculate_and_set_goals(
         "daily_water": daily_water,
         "daily_steps": daily_steps
     }
+
+@router.get("/products/with-pfc")
+async def get_products_with_pfc(
+    product_id: Optional[int] = None,
+    session: AsyncSession = Depends(get_session)
+):
+    query = select(
+        Products.id,
+        Products.name,
+        PFCc.proteins,
+        PFCc.fats,
+        PFCc.cb,
+        PFCc.calories
+    ).join(PFCc, Products.pfcc_id == PFCc.id)
+    
+    if product_id:
+        query = query.where(Products.id == product_id)
+    
+    products = await session.execute(query)
+    result = products.all()
+    
+    return [
+        {
+            "id": row[0],
+            "name": row[1],
+            "proteins": row[2],
+            "fats": row[3],
+            "carbs": row[4],
+            "calories": row[5]
+        }
+        for row in result
+    ]
