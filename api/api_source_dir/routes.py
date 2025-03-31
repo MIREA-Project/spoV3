@@ -4,10 +4,10 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request, Depends
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from decimal import Decimal
 from . import schemas
 from . import services
-from .db.models import PFCc, Products, UserEating, Steps, Water, Goals
+from .db.models import PFCc, Products, UserEating, Steps, Water, Goals, EatingType
 from .db import get_session
 
 logger = logging.getLogger(__name__)
@@ -84,17 +84,30 @@ async def add_eating_batch(
     await session.commit()
     return {"message": "Eating records added successfully"}
 
-@router.delete("/eating/{eating_id}")
+@router.delete("/eating")
 async def delete_eating(
-    eating_id: int,
+    user_id: int,
+    eating_type_id: int,
     session: AsyncSession = Depends(get_session)
 ):
-    eating = await session.get(UserEating, eating_id)
-    if not eating:
-        raise HTTPException(status_code=404, detail="Eating record not found")
-    await session.delete(eating)
+    today = date.today()
+    eating_records = await session.execute(
+        select(UserEating).where(
+            UserEating.user_id == user_id,
+            UserEating.eating_type_id == eating_type_id,
+            UserEating.create_date == today
+        )
+    )
+    eating_records = eating_records.scalars().all()
+    
+    if not eating_records:
+        raise HTTPException(status_code=404, detail="No eating records found for today")
+    
+    for record in eating_records:
+        await session.delete(record)
+    
     await session.commit()
-    return {"message": "Eating record deleted successfully"}
+    return {"message": "Eating records deleted successfully"}
 
 # Steps endpoints
 @router.post("/steps")
@@ -122,17 +135,28 @@ async def add_steps(
     await session.commit()
     return {"message": "Steps added successfully"}
 
-@router.delete("/steps/{steps_id}")
+@router.delete("/steps")
 async def delete_steps(
-    steps_id: int,
+    user_id: int,
     count: int,
     session: AsyncSession = Depends(get_session)
 ):
-    steps = await session.get(Steps, steps_id)
-    if not steps:
-        raise HTTPException(status_code=404, detail="Steps record not found")
+    today = date.today()
+    steps = await session.execute(
+        select(Steps).where(
+            Steps.user_id == user_id,
+            Steps.steps_date == today
+        )
+    )
+    steps = steps.scalar_one_or_none()
     
-    if steps.count <= count:
+    if not steps:
+        raise HTTPException(status_code=404, detail="No steps record found for today")
+    
+    if steps.count - count < 0:
+        raise HTTPException(status_code=400, detail="Cannot delete more steps than available")
+    
+    if steps.count - count == 0:
         await session.delete(steps)
     else:
         steps.count -= count
@@ -156,17 +180,42 @@ async def add_water(
     await session.commit()
     return {"message": "Water intake recorded successfully"}
 
-@router.delete("/water/{water_id}")
+@router.delete("/water")
 async def delete_water(
-    water_id: int,
+    user_id: int,
+    volume: float,
     session: AsyncSession = Depends(get_session)
 ):
-    water = await session.get(Water, water_id)
-    if not water:
-        raise HTTPException(status_code=404, detail="Water record not found")
-    await session.delete(water)
+    today = date.today()
+    water_records = await session.execute(
+        select(Water).where(
+            Water.user_id == user_id,
+            func.date(Water.water_datetime) == today
+        )
+    )
+    water_records = water_records.scalars().all()
+    
+    if not water_records:
+        raise HTTPException(status_code=404, detail="No water records found for today")
+    
+    total_volume = sum(record.volume for record in water_records)
+    if total_volume - volume < 0:
+        raise HTTPException(status_code=400, detail="Cannot delete more water than available")
+    
+    # Delete records until we reach the desired volume
+    remaining_volume = volume
+    for record in water_records:
+        if remaining_volume <= 0:
+            break
+        if record.volume <= remaining_volume:
+            await session.delete(record)
+            remaining_volume -= record.volume
+        else:
+            record.volume -= remaining_volume
+            remaining_volume = 0
+    
     await session.commit()
-    return {"message": "Water record deleted successfully"}
+    return {"message": "Water records updated/deleted successfully"}
 
 # Goals endpoints
 @router.post("/goals")
@@ -312,8 +361,8 @@ async def calculate_weekly_quality(
     
     # Calculate overall quality
     overall_quality = (
-        water_quality + steps_quality + calories_quality + 
-        proteins_quality + fats_quality + carbs_quality
+        Decimal(water_quality) + Decimal(steps_quality) + Decimal(calories_quality) + 
+        Decimal(proteins_quality) + Decimal(fats_quality) + Decimal(carbs_quality)
     ) / 6
     
     return {
@@ -326,4 +375,143 @@ async def calculate_weekly_quality(
         "fats_quality": fats_quality,
         "carbs_quality": carbs_quality,
         "overall_quality": overall_quality
+    }
+
+# GET endpoints for all models
+@router.get("/products")
+async def get_products(
+    session: AsyncSession = Depends(get_session)
+):
+    query = select(Products)
+    products = await session.execute(query)
+    return products.scalars().all()
+
+@router.get("/eating")
+async def get_eating(
+    user_id: Optional[int] = None,
+    session: AsyncSession = Depends(get_session)
+):
+    query = select(UserEating)
+    if user_id:
+        query = query.where(UserEating.user_id == user_id)
+    eating_records = await session.execute(query)
+    return eating_records.scalars().all()
+
+@router.get("/steps")
+async def get_steps(
+    user_id: Optional[int] = None,
+    session: AsyncSession = Depends(get_session)
+):
+    query = select(Steps)
+    if user_id:
+        query = query.where(Steps.user_id == user_id)
+    steps = await session.execute(query)
+    return steps.scalars().all()
+
+@router.get("/water")
+async def get_water(
+    user_id: Optional[int] = None,
+    session: AsyncSession = Depends(get_session)
+):
+    query = select(Water)
+    if user_id:
+        query = query.where(Water.user_id == user_id)
+    water_records = await session.execute(query)
+    return water_records.scalars().all()
+
+@router.get("/eating-types")
+async def get_eating_types(
+    session: AsyncSession = Depends(get_session)
+):
+    eating_types = await session.execute(select(EatingType))
+    return eating_types.scalars().all()
+
+@router.get("/products/search")
+async def search_products(
+    name: str,
+    session: AsyncSession = Depends(get_session)
+):
+    query = select(Products).where(
+        Products.name.ilike(f"%{name}%")
+    )
+    products = await session.execute(query)
+    return products.scalars().all()
+
+@router.post("/goals/calculate")
+async def calculate_and_set_goals(
+    user_id: int,
+    height_cm: float,  # рост в сантиметрах
+    weight_kg: float,  # вес в килограммах
+    session: AsyncSession = Depends(get_session)
+):
+    # Конвертируем рост в метры
+    height_m = height_cm / 100
+    
+    # Рассчитываем ИМТ
+    bmi = weight_kg / (height_m ** 2)
+    
+    # Рассчитываем базовый обмен веществ (BMR)
+    # Используем формулу Миффлина-Сан Жеора
+    # Предполагаем средний возраст 30 лет
+    age = 30
+    bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age
+    
+    # Рассчитываем дневную норму калорий
+    # Используем коэффициент 1.2 для умеренной активности
+    daily_calories = bmr * 1.2
+    
+    # Рассчитываем макронутриенты
+    # Белки: 30% от калорий (4 калории на грамм)
+    daily_proteins = (daily_calories * 0.3) / 4
+    
+    # Жиры: 30% от калорий (9 калорий на грамм)
+    daily_fats = (daily_calories * 0.3) / 9
+    
+    # Углеводы: 40% от калорий (4 калории на грамм)
+    daily_carbs = (daily_calories * 0.4) / 4
+    
+    # Рекомендуемое количество воды (30 мл на кг веса)
+    daily_water = weight_kg * 30
+    
+    # Рекомендуемое количество шагов (10000 для умеренной активности)
+    daily_steps = 10000
+    
+    # Проверяем существующие цели
+    existing_goals = await session.execute(
+        select(Goals).where(Goals.user_id == user_id)
+    )
+    existing_goals = existing_goals.scalar_one_or_none()
+    
+    if existing_goals:
+        # Обновляем существующие цели
+        existing_goals.daily_calories = daily_calories
+        existing_goals.daily_proteins = daily_proteins
+        existing_goals.daily_fats = daily_fats
+        existing_goals.daily_carbs = daily_carbs
+        existing_goals.daily_water = daily_water
+        existing_goals.daily_steps = daily_steps
+    else:
+        # Создаем новые цели
+        goals = Goals(
+            user_id=user_id,
+            daily_calories=daily_calories,
+            daily_proteins=daily_proteins,
+            daily_fats=daily_fats,
+            daily_carbs=daily_carbs,
+            daily_water=daily_water,
+            daily_steps=daily_steps
+        )
+        session.add(goals)
+    
+    await session.commit()
+    
+    return {
+        "message": "Goals calculated and set successfully",
+        "bmi": bmi,
+        "daily_calories": daily_calories,
+        "daily_proteins": daily_proteins,
+        "daily_fats": daily_fats,
+        "daily_carbs": daily_carbs,
+        "daily_water": daily_water,
+        "daily_steps": daily_steps
     }
