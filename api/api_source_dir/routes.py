@@ -9,6 +9,16 @@ from . import schemas
 from . import services
 from .db.models import PFCc, Products, UserEating, Steps, Water, Goals, EatingType
 from .db import get_session
+import os
+from dotenv import load_dotenv
+
+from langchain_community.chat_models import GigaChat
+
+# Загрузка переменных окружения из .env файла
+load_dotenv()
+
+# Получение токена из переменных окружения
+GIGACHAT_TOKEN = os.getenv("TOKEN")
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["default"])
@@ -299,10 +309,9 @@ async def update_goals(
     return {"message": "Goals updated successfully"}
 
 # Weekly quality calculation
-@router.get("/weekly-quality/{user_id}")
-async def calculate_weekly_quality(
+async def calculate_weekly_quality_data(
     user_id: int,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession
 ):
     # Get user's goals
     goals = await session.execute(
@@ -368,14 +377,21 @@ async def calculate_weekly_quality(
     return {
         "week_start": week_start,
         "week_end": week_end,
-        "water_quality": water_quality,
-        "steps_quality": steps_quality,
-        "calories_quality": calories_quality,
-        "proteins_quality": proteins_quality,
-        "fats_quality": fats_quality,
-        "carbs_quality": carbs_quality,
-        "overall_quality": overall_quality
+        "water_quality": round(water_quality,2),
+        "steps_quality": round(steps_quality,2),
+        "calories_quality": round(calories_quality,2),
+        "proteins_quality": round(proteins_quality,2),
+        "fats_quality": round(fats_quality,2),
+        "carbs_quality": round(carbs_quality,2),
+        "overall_quality": round(overall_quality,2)
     }
+
+@router.get("/weekly-quality/{user_id}")
+async def calculate_weekly_quality(
+    user_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    return await calculate_weekly_quality_data(user_id, session)
 
 # GET endpoints for all models
 @router.get("/products")
@@ -547,3 +563,36 @@ async def get_products_with_pfc(
         }
         for row in result
     ]
+
+@router.get("/recomendations")
+async def get_recomendations_using_score(
+    user_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    # Получаем данные о качестве недели
+    weekly_quality = await calculate_weekly_quality_data(user_id, session)
+    if weekly_quality:  
+        chat = GigaChat(
+            credentials=GIGACHAT_TOKEN,
+            scope="GIGACHAT_API_PERS",
+            verify_ssl_certs=False,
+            profanity=True,
+            timeout=600
+        )
+
+        user_prompt = '''Ты получаешь информацию о проведенной неделе человека. Тебе нужно дать рекомендации по её улучшению.
+        Информация:
+        {info}'''.format(info=weekly_quality)
+
+        system_prompt = "Ты — Олег, русскоязычный нутрицолог и ассистент. Ты разговариваешь с людьми и помогаешь им в борьбе с плохим питанием и образом жизни"
+
+        messages = [
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': user_prompt}
+            ]
+
+        response = chat.invoke(messages)
+        return {"status": "success", "response": response.content}
+    else:
+        return {"status": "error", "message": "No data found for the given user_id"}
+    
