@@ -3,8 +3,10 @@ from typing import Optional
 from sqlalchemy import select, update, insert, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api_source_dir.db.models import *
 from . import schemas
+from . import services
+from .db.models import PFCc, Products, UserEating, Steps, Water, Goals, EatingType
+from .db import get_session
 
 
 async def get_user_stat(user_id: int, session: AsyncSession) -> schemas.Statistic:

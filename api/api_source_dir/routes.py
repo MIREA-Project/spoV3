@@ -396,12 +396,11 @@ async def calculate_weekly_quality(
 
 # GET endpoints for all models
 @router.get("/products")
-async def get_products(
-        session: AsyncSession = Depends(get_session)
-):
-    query = select(Products)
-    products = await session.execute(query)
-    return products.scalars().all()
+async def get_products(session: AsyncSession = Depends(get_session)):
+    """Get all products"""
+    result = await session.execute(select(Products))
+    products = result.scalars().all()
+    return products
 
 @router.get("/eating")
 async def get_eating(
@@ -597,3 +596,59 @@ async def get_recomendations_using_score(
         return {"status": "success", "response": response.content}
     else:
         return {"status": "error", "message": "No data found for the given user_id"}
+
+@router.get("/eating/history/{user_id}")
+async def get_user_eating_history(
+    user_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    """Get user's eating history"""
+    result = await session.execute(
+        select(UserEating)
+        .where(UserEating.user_id == user_id)
+        .order_by(UserEating.create_date.desc())
+    )
+    eating_records = result.scalars().all()
+    return eating_records
+
+@router.get("/steps/history/{user_id}")
+async def get_user_steps_history(
+    user_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    """Get user's steps history"""
+    result = await session.execute(
+        select(Steps)
+        .where(Steps.user_id == user_id)
+        .order_by(Steps.steps_date.desc())
+    )
+    steps_records = result.scalars().all()
+    return steps_records
+
+@router.get("/water/history/{user_id}")
+async def get_user_water_history(
+    user_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    """Get user's water intake history"""
+    result = await session.execute(
+        select(Water)
+        .where(Water.user_id == user_id)
+        .order_by(Water.water_datetime.desc())
+    )
+    water_records = result.scalars().all()
+    return water_records
+
+@router.get("/goals/{user_id}")
+async def get_user_goals(
+    user_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    """Get user's goals"""
+    result = await session.execute(
+        select(Goals).where(Goals.user_id == user_id)
+    )
+    goals = result.scalar_one_or_none()
+    if not goals:
+        raise HTTPException(status_code=404, detail="Goals not found for this user")
+    return goals

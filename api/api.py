@@ -4,8 +4,14 @@ import uvicorn
 from fastapi import FastAPI, Request
 from starlette.middleware.cors import CORSMiddleware
 
-from api_source_dir.db import async_session, init_models
-from api_source_dir.routes import router
+
+if __name__ == '__main__':
+    from api_source_dir.db import async_session, init_models
+    from api_source_dir.routes import router
+else:
+    from api_source_dir.db import async_session, init_models
+    from api_source_dir.routes import router
+
 
 
 @asynccontextmanager
